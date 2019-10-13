@@ -1,0 +1,162 @@
+extends layout
+
+block content
+    style.
+        .thumbnails {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .thumbnails > div {
+            /* position: relative;*/
+            margin: 10px;
+            text-align: center;
+            color: #888;
+        }
+        .folderView, .imageView {
+            width: 90px;
+            height: 90px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        .folderView:hover {
+            background-color: #ccc;
+        }
+
+        .heading {
+            overflow: hidden;
+            width: 90px;
+            padding-bottom: 4px;
+            /* white-space: nowrap;*/
+        }
+
+        .largeImageContainer {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+        }
+
+        .largeImageBackground {
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #000;
+            opacity: 0.8;
+        }
+
+        .largeImage {
+            position: relative;
+            display: block;
+            margin: 0 auto;
+        }
+ 
+    h1 Images in 
+        span.path
+    div.thumbnails
+        each folder in content.folders
+            div
+                div.heading= folder
+                div.folderView
+        each image in content.images
+            div
+                div.heading= image
+                div.imageView
+                    img(src='/preview#{path}/#{image}')
+    .largeImageContainer
+        .largeImageBackground
+        img.largeImage
+    script.
+        (function() {
+            let path = '#{path}'
+            let images = '#{content.images}'.split(',')
+            let pathItems = path.split(/[\\\/]/)
+            for (let iPathItem=0; iPathItem<pathItems.length; ++iPathItem) {
+                if (iPathItem === 0)
+                    $('.path').append($('<a>').attr('href', '/').text('/'))
+                else {
+                    if (iPathItem === 1)
+                        $('.path').append($('<span>').html('&nbsp;'))
+                    else
+                        $('.path').append($('<span>').text('/'))
+                    $('.path').append($('<a>').attr('href', '/gallery' + pathItems.slice(0, iPathItem+1).join('/')).text(pathItems[iPathItem]))
+                }
+            }
+            let windowWidth, windowHeight
+            function onResizeWindow() {
+                windowWidth = $(document).width()
+                windowHeight = $(document).height()
+            }
+            $(window).resize(onResizeWindow)
+            onResizeWindow()
+            $('.folderView').click(function() {
+                document.location.pathname += (document.location.pathname.slice(-1) === '/'? '': '/') + $(this).prev().text()
+            })
+
+            function callMethod(object, names) {
+                for(var i=0; i<names.length; ++i) {
+                    var f = object[names[i]]
+                    if (f instanceof Function) {
+                        f.call(object)
+                        return
+                    }
+                }
+                console.log('WARNING: None of the following methods is found: ' + names.join(', '))
+            }
+            function requestFullScreen(element) {
+                callMethod(element, ['requestFullscreen', 'webkitRequestFullscreen', 'mozRequestFullscreen'])
+            }
+            function exitFullScreen() {
+                if (isFullScreen())
+                    callMethod(document, ['exitFullscreen', 'webkitExitFullscreen', 'mozExitFullscreen'])
+            }
+
+            function showImage(name) {
+                $('.largeImage').attr('src', `/image${path}/${name}?width=${windowWidth}&height=${windowHeight}`)
+                $('.largeImageContainer').fadeIn('fast')
+                requestFullScreen($('.largeImageContainer')[0])
+            }
+            $('.imageView').click(function() {
+                let name = $(this).children('img').attr('src').match(/[\\\/]([^\\\/\?]+)(\?|$)/)[1]
+                showImage(name)
+            })
+            function showNextOrPrevImage(delta) {
+                name = $('.largeImage').attr('src').match(/[\\\/]([^\\\/\?]+)(\?|$)/)[1]
+                let index = images.indexOf(name)
+                if (index < 0 || index+delta < 0 || index+delta >= images.length)
+                    $('.largeImageContainer').fadeOut('fast')
+                else
+                    showImage(images[index+delta])
+            }
+            $('.largeImage').click(function() {
+                showNextOrPrevImage(1)
+            })
+            $('.largeImageBackground').click(function() {
+                $('.largeImageContainer').fadeOut('fast')
+            })
+            $(document).keyup(function(e) {
+                // console.log(e.keyCode)
+                switch (e.keyCode) {
+                    case 36:    // home
+                        showImage(images[index+1])
+                        break
+                    case 27:    // Esc
+                    case 40:    // Down arrow
+                        $('.largeImageContainer').fadeOut('fast')
+                        break
+                    case 37:    // Left arrow
+                        showNextOrPrevImage(-1)
+                        break
+                    case 39:    // Left arrow
+                        showNextOrPrevImage(1)
+                        break
+                }
+            })
+
+        })()
