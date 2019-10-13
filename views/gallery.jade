@@ -77,6 +77,7 @@ block content
             let path = '#{path}'
             let images = '#{content.images}'.split(',')
             let pathItems = path.split(/[\\\/]/)
+            let currentImage = ''
             for (let iPathItem=0; iPathItem<pathItems.length; ++iPathItem) {
                 if (iPathItem === 0)
                     $('.path').append($('<a>').attr('href', '/').text('/'))
@@ -90,8 +91,10 @@ block content
             }
             let windowWidth, windowHeight
             function onResizeWindow() {
-                windowWidth = $(document).width()
-                windowHeight = $(document).height()
+                windowWidth = $(window).width()
+                windowHeight = $(window).height()
+                if (currentImage)
+                    showImage(currentImage, true)
             }
             $(window).resize(onResizeWindow)
             onResizeWindow()
@@ -109,19 +112,39 @@ block content
                 }
                 console.log('WARNING: None of the following methods is found: ' + names.join(', '))
             }
+
+            function readProp(object, names) {
+                for(var i=0; i<names.length; ++i) {
+                    var name = names[i]
+                    if (name in object)
+                        return object[name]
+                }
+                console.log('WARNING: None of the following properties is found: ' + names.join(', '))
+            }
+            function isFullScreen() {
+                return !!readProp(document, ['fullscreenElement', 'webkitFullscreenElement', 'mozFullscreenElement'])
+            }
             function requestFullScreen(element) {
                 callMethod(element, ['requestFullscreen', 'webkitRequestFullscreen', 'mozRequestFullscreen'])
             }
             function exitFullScreen() {
                 if (isFullScreen())
-                    callMethod(document, ['exitFullscreen', 'webkitExitFullscreen', 'mozExitFullscreen'])
+                    return callMethod(document, ['exitFullscreen', 'webkitExitFullscreen', 'mozExitFullscreen'])
             }
 
-            function showImage(name) {
+            function showImage(name, noFullScreen) {
+                if (!noFullScreen)
+                    requestFullScreen($('.largeImageContainer')[0])
+                currentImage = name
                 $('.largeImage').attr('src', `/image${path}/${name}?width=${windowWidth}&height=${windowHeight}`)
                 $('.largeImageContainer').fadeIn('fast')
-                requestFullScreen($('.largeImageContainer')[0])
             }
+            function hideImage() {
+                $('.largeImageContainer').fadeOut('fast')
+                currentImage = ''
+                exitFullScreen()
+            }
+
             $('.imageView').click(function() {
                 let name = $(this).children('img').attr('src').match(/[\\\/]([^\\\/\?]+)(\?|$)/)[1]
                 showImage(name)
@@ -130,7 +153,7 @@ block content
                 name = $('.largeImage').attr('src').match(/[\\\/]([^\\\/\?]+)(\?|$)/)[1]
                 let index = images.indexOf(name)
                 if (index < 0 || index+delta < 0 || index+delta >= images.length)
-                    $('.largeImageContainer').fadeOut('fast')
+                    hideImage()
                 else
                     showImage(images[index+delta])
             }
@@ -138,7 +161,7 @@ block content
                 showNextOrPrevImage(1)
             })
             $('.largeImageBackground').click(function() {
-                $('.largeImageContainer').fadeOut('fast')
+                hideImage()
             })
             $(document).keyup(function(e) {
                 // console.log(e.keyCode)
@@ -148,7 +171,7 @@ block content
                         break
                     case 27:    // Esc
                     case 40:    // Down arrow
-                        $('.largeImageContainer').fadeOut('fast')
+                        hideImage()
                         break
                     case 37:    // Left arrow
                         showNextOrPrevImage(-1)
